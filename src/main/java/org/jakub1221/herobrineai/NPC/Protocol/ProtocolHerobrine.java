@@ -34,6 +34,7 @@ public class ProtocolHerobrine {
     }
 
     public void spawnForPlayer(Player player) {
+        if (currentLocation.getWorld() != null && player.getWorld() != currentLocation.getWorld()) return;
         try {
             Bukkit.getLogger().info("[HerobrineAI] Spawning Herobrine for " + player.getName());
 
@@ -68,6 +69,7 @@ public class ProtocolHerobrine {
             }
 
             spawned = true;
+            lastTX = Double.NaN; // force position resend after (re)spawn
             Bukkit.getLogger().info("[HerobrineAI] Successfully spawned Herobrine for " + player.getName());
         } catch (Exception e) {
             Bukkit.getLogger().severe("[HerobrineAI] Failed to spawn Herobrine for " + player.getName() + ": " + e.getMessage());
@@ -112,9 +114,22 @@ public class ProtocolHerobrine {
         }
     }
 
+    private double lastTX = Double.NaN, lastTY, lastTZ;
+    private float lastTYaw, lastTPitch;
+
     public void teleport(Location loc) {
         this.currentLocation = loc.clone();
         if (!spawned) return;
+
+        // Skip sending if nothing changed (moveTo is called every few ticks while idle)
+        if (!Double.isNaN(lastTX)
+                && Math.abs(loc.getX() - lastTX) < 0.02 && Math.abs(loc.getY() - lastTY) < 0.02
+                && Math.abs(loc.getZ() - lastTZ) < 0.02
+                && Math.abs(loc.getYaw() - lastTYaw) < 0.5f && Math.abs(loc.getPitch() - lastTPitch) < 0.5f) {
+            return;
+        }
+        lastTX = loc.getX(); lastTY = loc.getY(); lastTZ = loc.getZ();
+        lastTYaw = loc.getYaw(); lastTPitch = loc.getPitch();
 
         initNms();
         if (nmsAvailable) {
@@ -226,6 +241,7 @@ public class ProtocolHerobrine {
 
     private void broadcast(PacketContainer packet) {
         for (Player p : Bukkit.getOnlinePlayers()) {
+            if (currentLocation.getWorld() != null && p.getWorld() != currentLocation.getWorld()) continue;
             try { manager.sendServerPacket(p, packet); }
             catch (Exception e) {
                 if (!nmsErrorLogged) {

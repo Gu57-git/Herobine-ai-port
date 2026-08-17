@@ -153,18 +153,18 @@ public class AICore {
  Player targetPlayer = Utils.getRandomPlayer();
 
  if (targetPlayer != null && targetPlayer.getEntityId() != HerobrineAI.getPluginCore().HerobrineEntityID) {
- if (HerobrineAI.getPluginCore().getConfigDB().useWorlds
- .contains(targetPlayer.getLocation().getWorld().getName())
+ if (HerobrineAI.getPluginCore().getConfigDB()
+ .isWorldAllowed(targetPlayer.getLocation().getWorld().getName())
  && HerobrineAI.getPluginCore().canAttackPlayerNoMSG(targetPlayer)) {
 
  CancelTarget(CoreType.ANY);
+ PlayerTarget = targetPlayer;
  isTarget = true;
  log.info("[HerobrineAI] Target founded, starting AI now! (" + targetPlayer.getName() + ")");
  setCoreTypeNow(CoreType.START);
  StartAI();
  } else {
  log.info("[HerobrineAI] Target is in the safe world! (" + targetPlayer.getLocation().getWorld().getName() + ")");
- FindPlayer();
  }
  }
  }
@@ -197,6 +197,7 @@ public class AICore {
 
  _ticks = 0;
  isTarget = false;
+ PlayerTarget = null;
  HerobrineAI.HerobrineHP = HerobrineAI.HerobrineMaxHP;
 
  log.info("[HerobrineAI] Target cancelled.");
@@ -278,10 +279,20 @@ public class AICore {
  private void RandomPositionInterval() {
  if (CoreNow == CoreType.ANY) {
  ((RandomPosition) getCore(CoreType.RANDOM_POSITION)).setRandomTicks(0);
- int count = HerobrineAI.getPluginCore().getConfigDB().useWorlds.size();
- if (count > 0) {
- int chance = Utils.getRandomGen().nextInt(count);
- Object[] data = { Bukkit.getServer().getWorld(HerobrineAI.getPluginCore().getConfigDB().useWorlds.get(chance)) };
+ java.util.List<World> worlds;
+ if (HerobrineAI.getPluginCore().getConfigDB().useWorlds.isEmpty()) {
+ worlds = new ArrayList<>(Bukkit.getServer().getWorlds());
+ worlds.removeIf(w -> w.getName().equals("world_herobrineai_graveyard")); // never wander in the prison world
+ } else {
+ worlds = new ArrayList<>();
+ for (String wn : HerobrineAI.getPluginCore().getConfigDB().useWorlds) {
+ World w = Bukkit.getServer().getWorld(wn);
+ if (w != null) worlds.add(w);
+ }
+ }
+ if (!worlds.isEmpty()) {
+ World w = worlds.get(Utils.getRandomGen().nextInt(worlds.size()));
+ Object[] data = { w };
  getCore(CoreType.RANDOM_POSITION).RunCore(data);
  }
  }
@@ -307,7 +318,7 @@ public class AICore {
  if (Utils.getRandomGen().nextBoolean()) {
  if (Bukkit.getServer().getOnlinePlayers().size() > 0) {
  Player player = Utils.getRandomPlayer();
- if (player != null && HerobrineAI.getPluginCore().getConfigDB().useWorlds.contains(player.getLocation().getWorld().getName())) {
+ if (player != null && HerobrineAI.getPluginCore().getConfigDB().isWorldAllowed(player.getLocation().getWorld().getName())) {
  int chance2 = Utils.getRandomGen().nextInt(100);
  if (chance2 < 30) {
  if (HerobrineAI.getPluginCore().getConfigDB().BuildPyramids == true) {
@@ -335,7 +346,7 @@ public class AICore {
  if (Utils.getRandomGen().nextBoolean()) {
  if (Bukkit.getServer().getOnlinePlayers().size() > 0) {
  Player player = Utils.getRandomPlayer();
- if (player != null && HerobrineAI.getPluginCore().getConfigDB().useWorlds.contains(player.getLocation().getWorld().getName())) {
+ if (player != null && HerobrineAI.getPluginCore().getConfigDB().isWorldAllowed(player.getLocation().getWorld().getName())) {
  if (Utils.getRandomGen().nextBoolean()) {
  Object[] data = { player };
  getCore(CoreType.TEMPLE).RunCore(data);
@@ -351,7 +362,7 @@ public class AICore {
  if (Utils.getRandomGen().nextBoolean()) {
  if (Bukkit.getServer().getOnlinePlayers().size() > 0) {
  Player player = Utils.getRandomPlayer();
- if (player != null && HerobrineAI.getPluginCore().getConfigDB().useWorlds.contains(player.getLocation().getWorld().getName())) {
+ if (player != null && HerobrineAI.getPluginCore().getConfigDB().isWorldAllowed(player.getLocation().getWorld().getName())) {
  if (Utils.getRandomGen().nextBoolean()) {
  Object[] data = { player.getLocation() };
  getCore(CoreType.BUILD_CAVE).RunCore(data);
@@ -375,7 +386,7 @@ public class AICore {
  if (Bukkit.getServer().getOnlinePlayers().size() > 0) {
  Player player = Utils.getRandomPlayer();
  if (player != null && player.getEntityId() != HerobrineAI.getPluginCore().HerobrineEntityID) {
- if (HerobrineAI.getPluginCore().getConfigDB().useWorlds.contains(player.getLocation().getWorld().getName())) {
+ if (HerobrineAI.getPluginCore().getConfigDB().isWorldAllowed(player.getLocation().getWorld().getName())) {
  Object[] data = { player };
  if (HerobrineAI.getPluginCore().canAttackPlayerNoMSG(player)) {
  int r = Utils.getRandomGen().nextInt(100);
@@ -403,7 +414,7 @@ public class AICore {
  Location ploc = PlayerTarget.getLocation();
  for(int i=0; i < 5; i++){
  for(float j=0; j < 2; j+= 0.5f){
- Location hbloc = HerobrineAI.getPluginCore().HerobrineNPC.getBukkitEntity().getLocation();
+ Location hbloc = HerobrineAI.getPluginCore().HerobrineNPC.getProtocolEntity().getLocation();
  hbloc.setY(hbloc.getY() + j);
  hbloc.getWorld().spawnParticle(Particle.SMOKE, hbloc, 10, 0.3, 0.3, 0.3, 0);
  }

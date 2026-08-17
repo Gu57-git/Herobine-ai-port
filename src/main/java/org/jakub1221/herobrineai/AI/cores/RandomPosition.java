@@ -37,7 +37,7 @@ public class RandomPosition extends Core {
 
     public void RandomMove() {
         if (AICore.isTarget && PluginCore.getAICore().getCoreTypeNow() == CoreType.RANDOM_POSITION) {
-            Location loc = PluginCore.HerobrineNPC.getBukkitEntity().getLocation();
+            Location loc = PluginCore.HerobrineNPC.getProtocolEntity().getLocation();
             loc.setX(loc.getX() + (Utils.getRandomGen().nextInt(3) - 1));
             loc.setZ(loc.getZ() + (Utils.getRandomGen().nextInt(3) - 1));
             loc.setY(loc.getWorld().getHighestBlockYAt(loc.getBlockX(), loc.getBlockZ()));
@@ -47,7 +47,7 @@ public class RandomPosition extends Core {
 
     public void CheckGravity() {
         if (AICore.isTarget && PluginCore.getAICore().getCoreTypeNow() == CoreType.RANDOM_POSITION) {
-            Location loc = PluginCore.HerobrineNPC.getBukkitEntity().getLocation();
+            Location loc = PluginCore.HerobrineNPC.getProtocolEntity().getLocation();
             if (loc.getY() < -10) {
                 loc.setY(loc.getWorld().getHighestBlockYAt(loc.getBlockX(), loc.getBlockZ()));
                 PluginCore.HerobrineNPC.moveTo(loc);
@@ -57,11 +57,11 @@ public class RandomPosition extends Core {
 
     public void CheckPlayerPosition() {
         if (AICore.isTarget && PluginCore.getAICore().getCoreTypeNow() == CoreType.RANDOM_POSITION) {
+            Location npcLoc = PluginCore.HerobrineNPC.getProtocolEntity().getLocation();
             for (org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {
-                if (player.getWorld() == PluginCore.HerobrineNPC.getBukkitEntity().getWorld()) {
-                    if (player.getLocation().distance(PluginCore.HerobrineNPC.getBukkitEntity().getLocation()) < 10) {
-                        PluginCore.HerobrineNPC.lookAtPoint(player.getLocation());
-                    }
+                if (player.getWorld() == npcLoc.getWorld()
+                        && player.getLocation().distanceSquared(npcLoc) < 100) {
+                    PluginCore.HerobrineNPC.lookAtPoint(player.getLocation());
                 }
             }
         }

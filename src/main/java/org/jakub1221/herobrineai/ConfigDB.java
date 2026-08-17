@@ -88,6 +88,11 @@ public class ConfigDB {
         this.log = log;
     }
 
+    // Empty useWorlds list means "all worlds allowed" (otherwise the AI never acts by default)
+    public boolean isWorldAllowed(String worldName) {
+        return useWorlds == null || useWorlds.isEmpty() || useWorlds.contains(worldName);
+    }
+
     public void Startup() {
         File f = new File("plugins/HerobrineAI");
         if (!f.exists()) f.mkdirs();

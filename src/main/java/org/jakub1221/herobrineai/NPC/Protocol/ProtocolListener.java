@@ -33,6 +33,8 @@ public class ProtocolListener extends PacketAdapter {
         if (action == EnumWrappers.EntityUseAction.ATTACK) {
             event.setCancelled(true);
             Bukkit.getScheduler().runTask(HerobrineAI.getPluginCore(), () -> {
+                HerobrineAI.getPluginCore().getNPCCore()
+                        .ensureZombie(npc, npc.getProtocolEntity().getLocation());
                 double damage = 1.0;
                 try {
                     damage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();

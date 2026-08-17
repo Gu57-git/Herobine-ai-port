@@ -147,19 +147,14 @@ public class HerobrineAI extends JavaPlugin implements Listener {
     @Override
     public void onDisable() {
         if (isInitDone) {
-            this.entMng.killAllMobs();
-            Bukkit.getScheduler().cancelTask(pathUpdateINT);
-            NPCman.DisableTask();
-            // Don't call CancelTarget here - it schedules tasks which causes IllegalPluginAccessException
-            // Just clean up directly
-            aicore.Stop_BD();
-            aicore.Stop_CG();
-            aicore.Stop_MAIN();
-            aicore.Stop_RC();
-            aicore.Stop_RM();
-            aicore.Stop_RP();
-            aicore.Stop_RS();
-            aicore.disableAll();
+            if (this.entMng != null) this.entMng.killAllMobs();
+            Bukkit.getScheduler().cancelTasks(this);
+            if (this.NPCman != null) {
+                this.NPCman.removeAll();
+            }
+            if (this.aicore != null) {
+                aicore.disableAll();
+            }
             log.info("[HerobrineAI] Plugin disabled!");
         }
     }

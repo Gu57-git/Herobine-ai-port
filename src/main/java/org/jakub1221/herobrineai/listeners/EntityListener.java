@@ -49,7 +49,7 @@ public class EntityListener implements Listener {
     @EventHandler
     public void onCreatureSpawn(CreatureSpawnEvent event) {
         if (!PluginCore.isNPCDisabled) {
-            if (PluginCore.getConfigDB().useWorlds.contains(event.getEntity().getLocation().getWorld().getName())) {
+            if (PluginCore.getConfigDB().isWorldAllowed(event.getEntity().getLocation().getWorld().getName())) {
                 Entity entity = event.getEntity();
                 EntityType creatureType = event.getEntityType();
                 if (event.isCancelled()) return;
@@ -136,7 +136,7 @@ public class EntityListener implements Listener {
                             PluginCore.HerobrineNPC.HurtAnimation();
                             AICore.log.info("HIT: " + event.getDamage());
                         }
-                    } else if (dEvent.getDamager() instanceof Projectile) {
+                    } else if (dEvent.getDamager() instanceof Arrow) {
                         Arrow arrow = (Arrow) dEvent.getDamager();
                         if (arrow.getShooter() instanceof Player) {
                             if (PluginCore.getAICore().getCoreTypeNow() == CoreType.RANDOM_POSITION) {

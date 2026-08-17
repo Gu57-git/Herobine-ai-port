@@ -7,7 +7,7 @@ import org.jakub1221.herobrineai.NPC.Protocol.ProtocolHerobrine;
 
 public class HumanNPC {
 
-    private final Zombie entity;
+    private Zombie entity;
     private final ProtocolHerobrine protocolEntity;
     private final int id;
 
@@ -19,39 +19,51 @@ public class HumanNPC {
 
     public int getID() { return id; }
     public Zombie getEntity() { return entity; }
+    public void setEntity(Zombie entity) { this.entity = entity; }
     public ProtocolHerobrine getProtocolEntity() { return protocolEntity; }
 
     public void ArmSwingAnimation() {
-        entity.swingMainHand();
+        ensureAlive();
+        if (entity != null) entity.swingMainHand();
         protocolEntity.playAnimation(0);
     }
 
+    private void ensureAlive() {
+        org.jakub1221.herobrineai.HerobrineAI.getPluginCore().getNPCCore()
+                .ensureZombie(this, protocolEntity.getLocation());
+    }
+
     public void HurtAnimation() {
-        double healthBefore = entity.getHealth();
-        entity.damage(0.5D);
-        entity.setHealth(healthBefore);
+        ensureAlive();
+        if (entity != null) {
+            double healthBefore = entity.getHealth();
+            entity.damage(0.5D);
+            entity.setHealth(healthBefore);
+        }
         protocolEntity.playAnimation(1);
     }
 
     public void setItemInHand(ItemStack item) {
-        if (item != null && entity.getEquipment() != null) {
+        ensureAlive();
+        if (item != null && entity != null && entity.getEquipment() != null) {
             entity.getEquipment().setItemInMainHand(item);
             protocolEntity.setEquipment(0, item);
         }
     }
 
     public String getName() {
-        return entity.getCustomName() != null ? entity.getCustomName() : "Herobrine";
+        return (entity != null && entity.getCustomName() != null) ? entity.getCustomName() : "Herobrine";
     }
 
     public void setPitch(float pitch) {
-        Location loc = entity.getLocation();
+        Location loc = protocolEntity.getLocation();
         loc.setPitch(pitch);
         moveTo(loc);
     }
 
     public void moveTo(Location loc) {
-        entity.teleport(loc);
+        ensureAlive();
+        if (entity != null) entity.teleport(loc);
         protocolEntity.teleport(loc);
     }
 
@@ -63,22 +75,25 @@ public class HumanNPC {
 
     public void removeFromWorld() {
         protocolEntity.destroy();
-        entity.remove();
+        if (entity != null) entity.remove();
     }
 
     public void setYaw(float yaw) {
-        Location loc = entity.getLocation();
+        Location loc = protocolEntity.getLocation();
         loc.setYaw(yaw);
         moveTo(loc);
     }
 
     public void lookAtPoint(Location point) {
-        if (entity.getWorld() != point.getWorld()) return;
-        Location eye = entity.getEyeLocation();
-        org.bukkit.util.Vector direction = point.toVector().subtract(eye.toVector());
-        Location newLoc = eye.clone();
-        newLoc.setDirection(direction);
-        entity.teleport(newLoc);
+        if (protocolEntity.getLocation().getWorld() != point.getWorld()) return;
+        ensureAlive();
+        if (entity != null) {
+            Location eye = entity.getEyeLocation();
+            org.bukkit.util.Vector direction = point.toVector().subtract(eye.toVector());
+            Location newLoc = eye.clone();
+            newLoc.setDirection(direction);
+            entity.teleport(newLoc);
+        }
         protocolEntity.lookAt(point);
     }
 

@@ -39,10 +39,12 @@ public class Attack extends Core {
                     return new CoreResult(false, "This player is protected.");
                 }
 
+                PluginCore.getAICore().CancelTarget(CoreType.ANY);
                 HerobrineAI.HerobrineHP = HerobrineAI.HerobrineMaxHP;
                 ticksToEnd = 0;
                 AICore.PlayerTarget = player;
                 AICore.isTarget = true;
+                PluginCore.getAICore().setCoreTypeNow(CoreType.ATTACK);
                 AICore.log.info("[HerobrineAI] Teleporting to target. (" + AICore.PlayerTarget.getName() + ")");
                 Location ploc = AICore.PlayerTarget.getLocation();
                 Object[] data = { ploc };
@@ -90,7 +92,7 @@ public class Attack extends Core {
     public void KeepLooking() {
         if (AICore.PlayerTarget != null && AICore.PlayerTarget.isOnline() && AICore.isTarget
                 && PluginCore.getAICore().getCoreTypeNow() == CoreType.ATTACK) {
-            if (!AICore.PlayerTarget.isDead()) {
+            if (!AICore.PlayerTarget.isDead() && targetInSameWorld()) {
                 if (ticksToEnd == 160) {
                     PluginCore.getAICore().CancelTarget(CoreType.ATTACK);
                 } else {
@@ -114,18 +116,31 @@ public class Attack extends Core {
                     }
                 }
             } else {
-                PluginCore.getAICore().CancelTarget(CoreType.ATTACK);
+                stopIfStale();
             }
         } else {
+            stopIfStale();
+        }
+    }
+
+    private void stopIfStale() {
+        StopHandler();
+        if (PluginCore.getAICore().getCoreTypeNow() == CoreType.ATTACK) {
             PluginCore.getAICore().CancelTarget(CoreType.ATTACK);
         }
+    }
+
+    private boolean targetInSameWorld() {
+        return AICore.PlayerTarget != null && PluginCore.HerobrineNPC != null
+                && AICore.PlayerTarget.getWorld() == PluginCore.HerobrineNPC.getBukkitEntity().getWorld();
     }
 
     public void Follow() {
         if (AICore.PlayerTarget != null && AICore.PlayerTarget.isOnline() && AICore.isTarget
                 && PluginCore.getAICore().getCoreTypeNow() == CoreType.ATTACK) {
             if (!AICore.PlayerTarget.isDead()) {
-                if (PluginCore.getConfigDB().useWorlds.contains(AICore.PlayerTarget.getWorld().getName())
+                if (PluginCore.getConfigDB().isWorldAllowed(AICore.PlayerTarget.getWorld().getName())
+                        && targetInSameWorld()
                         && PluginCore.getSupport().checkAttack(AICore.PlayerTarget.getLocation())) {
                     PluginCore.HerobrineNPC.moveTo(Position.getTeleportPosition(AICore.PlayerTarget.getLocation()));
                     Location ploc = AICore.PlayerTarget.getLocation();
@@ -143,10 +158,10 @@ public class Attack extends Core {
                     PluginCore.getAICore().CancelTarget(CoreType.ATTACK);
                 }
             } else {
-                PluginCore.getAICore().CancelTarget(CoreType.ATTACK);
+                stopIfStale();
             }
         } else {
-            PluginCore.getAICore().CancelTarget(CoreType.ATTACK);
+            stopIfStale();
         }
     }
 
@@ -158,22 +173,22 @@ public class Attack extends Core {
                 ploc.setY(-20);
                 for(int i=0; i < 5; i++){
                     for(float j=0; j < 2; j+= 0.5f){
-                        Location hbloc = PluginCore.HerobrineNPC.getBukkitEntity().getLocation();
+                        Location hbloc = PluginCore.HerobrineNPC.getProtocolEntity().getLocation();
                         hbloc.setY(hbloc.getY() + j);
                         hbloc.getWorld().spawnParticle(Particle.SMOKE, hbloc, 10, 0.3, 0.3, 0.3, 0);
                     }
                 }
                 if (PluginCore.getConfigDB().SpawnBats) {
-                    Location hbloc = PluginCore.HerobrineNPC.getBukkitEntity().getLocation();
+                    Location hbloc = PluginCore.HerobrineNPC.getProtocolEntity().getLocation();
                     ploc.getWorld().spawnEntity(hbloc, EntityType.BAT);
                     ploc.getWorld().spawnEntity(hbloc, EntityType.BAT);
                 }
                 PluginCore.HerobrineNPC.moveTo(ploc);
             } else {
-                PluginCore.getAICore().CancelTarget(CoreType.ATTACK);
+                stopIfStale();
             }
         } else {
-            PluginCore.getAICore().CancelTarget(CoreType.ATTACK);
+            stopIfStale();
         }
     }
 
@@ -190,10 +205,10 @@ public class Attack extends Core {
                     }
                 }, 1 * 45L);
             } else {
-                PluginCore.getAICore().CancelTarget(CoreType.ATTACK);
+                stopIfStale();
             }
         } else {
-            PluginCore.getAICore().CancelTarget(CoreType.ATTACK);
+            stopIfStale();
         }
     }
 }

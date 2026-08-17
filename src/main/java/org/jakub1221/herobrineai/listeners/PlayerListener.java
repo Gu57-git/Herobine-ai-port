@@ -21,6 +21,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.jakub1221.herobrineai.HerobrineAI;
@@ -151,7 +152,7 @@ public class PlayerListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerQuit(PlayerQuitEvent event) {
-        if (event.getPlayer().getEntityId() != PluginCore.HerobrineEntityID) {
+        if (!isHerobrineNPC(event.getPlayer())) {
             if (PluginCore.getAICore().PlayerTarget == event.getPlayer()
                     && PluginCore.getAICore().getCoreTypeNow() == CoreType.GRAVEYARD
                     && event.getPlayer().getLocation().getWorld() == Bukkit.getServer()
@@ -173,9 +174,15 @@ public class PlayerListener implements Listener {
         }
     }
 
+    private boolean isHerobrineNPC(Player player) {
+        return PluginCore.HerobrineNPC != null
+                && PluginCore.HerobrineNPC.getBukkitEntity() != null
+                && player.getUniqueId().equals(PluginCore.HerobrineNPC.getBukkitEntity().getUniqueId());
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerTeleport(PlayerTeleportEvent event) {
-        if (event.getPlayer().getEntityId() == PluginCore.HerobrineEntityID) {
+        if (isHerobrineNPC(event.getPlayer())) {
             if (event.getFrom().getWorld() != event.getTo().getWorld()) {
                 PluginCore.HerobrineRemove();
                 PluginCore.HerobrineSpawn(event.getTo());
@@ -197,7 +204,7 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onPlayerDeathEvent(PlayerDeathEvent event) {
-        if (event.getEntity().getEntityId() == PluginCore.HerobrineEntityID) {
+        if (isHerobrineNPC(event.getEntity())) {
             event.setDeathMessage("");
             PluginCore.HerobrineRemove();
             Location nowloc = new Location((World) Bukkit.getServer().getWorlds().get(0), 0, -20.f, 0);
@@ -209,12 +216,29 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onPlayerMoveEvent(PlayerMoveEvent event) {
-        if (event.getPlayer().getEntityId() != PluginCore.HerobrineEntityID) {
-            if (event.getPlayer().getWorld() == Bukkit.getServer().getWorld("world_herobrineai_graveyard")) {
-                Player player = (Player) event.getPlayer();
-                player.teleport(new Location(Bukkit.getServer().getWorld("world_herobrineai_graveyard"), -2.49f, 4.f,
-                        10.69f, -179.85f, 0.44999f));
+        if (!isHerobrineNPC(event.getPlayer())) {
+            World graveyard = Bukkit.getServer().getWorld("world_herobrineai_graveyard");
+            if (graveyard != null && event.getPlayer().getWorld() == graveyard) {
+                Player player = event.getPlayer();
+                Location lock = new Location(graveyard, -2.49f, 4.f, 10.69f, -179.85f, 0.44999f);
+                if (player.getLocation().distanceSquared(lock) > 1.0) {
+                    player.teleport(lock);
+                }
             }
+        }
+    }
+
+    @EventHandler
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+        // Re-spawn the fake player entity after a world switch (client clears entities).
+        // Delayed so we never send packets while the connection is mid-transfer.
+        if (PluginCore.HerobrineNPC != null && PluginCore.HerobrineNPC.getProtocolEntity() != null) {
+            Bukkit.getScheduler().scheduleSyncDelayedTask(PluginCore, () -> {
+                if (event.getPlayer().isOnline() && PluginCore.HerobrineNPC != null
+                        && PluginCore.HerobrineNPC.getProtocolEntity() != null) {
+                    PluginCore.HerobrineNPC.getProtocolEntity().spawnForPlayer(event.getPlayer());
+                }
+            }, 10L);
         }
     }
 
