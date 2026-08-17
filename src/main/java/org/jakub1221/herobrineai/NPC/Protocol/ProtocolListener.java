@@ -19,6 +19,7 @@ public class ProtocolListener extends PacketAdapter {
     }
 
     @Override
+    @SuppressWarnings("removal")
     public void onPacketReceiving(PacketEvent event) {
         PacketContainer packet = event.getPacket();
         int targetId = packet.getIntegers().read(0);
@@ -36,14 +37,12 @@ public class ProtocolListener extends PacketAdapter {
                 try {
                     damage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
                 } catch (Exception e) {
-                    // Fallback if attribute not available
+                    // Fallback
                 }
+                @SuppressWarnings("removal")
                 EntityDamageByEntityEvent dmg = new EntityDamageByEntityEvent(
-                    player,
-                    npc.getBukkitEntity(),
-                    EntityDamageEvent.DamageCause.ENTITY_ATTACK,
-                    damage
-                );
+                        player, npc.getBukkitEntity(),
+                        EntityDamageEvent.DamageCause.ENTITY_ATTACK, damage);
                 Bukkit.getPluginManager().callEvent(dmg);
                 if (!dmg.isCancelled()) {
                     ((org.bukkit.entity.Damageable) npc.getBukkitEntity()).damage(dmg.getFinalDamage(), player);

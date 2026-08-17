@@ -39,6 +39,11 @@ public class CmdExecutor implements CommandExecutor {
         }
         SubCommand sub = commands.get(args[0].toLowerCase());
         if (sub != null) {
+            String perm = "herobrineai.command." + args[0].toLowerCase();
+            if (!sender.hasPermission(perm)) {
+                sender.sendMessage(ChatColor.RED + "You don't have permission to use this command.");
+                return true;
+            }
             return sub.execute(sender, args, PluginCore);
         }
         sender.sendMessage(ChatColor.RED + "Unknown command. Use /hb-ai help");
