@@ -70,6 +70,11 @@ public class HerobrineAI extends JavaPlugin implements Listener {
         isInitDone = true;
         HerobrineAI.pluginCore = this;
         this.configdb = new ConfigDB(log);
+
+        // Load config BEFORE NPCCore so HerobrineUUID/Name/Texture are read from config.yml
+        configdb.Startup();
+        configdb.Reload();
+
         this.NPCman = new NPCCore(this);
 
         com.comphenix.protocol.ProtocolLibrary.getProtocolManager()
@@ -84,9 +89,6 @@ public class HerobrineAI extends JavaPlugin implements Listener {
         this.pathMng = new PathManager();
         this.aicore = new AICore();
         this.entMng = new EntityManager();
-
-        configdb.Startup();
-        configdb.Reload();
 
         Location nowloc = new Location(Bukkit.getWorlds().get(0), 0, 100, 0);
         nowloc.setYaw(1f);

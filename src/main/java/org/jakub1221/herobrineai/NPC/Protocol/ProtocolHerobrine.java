@@ -52,8 +52,10 @@ public class ProtocolHerobrine {
             spawn.getDoubles().write(0, currentLocation.getX());
             spawn.getDoubles().write(1, currentLocation.getY());
             spawn.getDoubles().write(2, currentLocation.getZ());
-            spawn.getBytes().write(0, (byte) (currentLocation.getYaw() * 256 / 360));
-            spawn.getBytes().write(1, (byte) (currentLocation.getPitch() * 256 / 360));
+            // Modern ClientboundAddEntityPacket angle order: pitch, yaw, head yaw
+            spawn.getBytes().write(0, (byte) (currentLocation.getPitch() * 256 / 360));
+            spawn.getBytes().write(1, (byte) (currentLocation.getYaw() * 256 / 360));
+            spawn.getBytes().write(2, (byte) (currentLocation.getYaw() * 256 / 360));
             manager.sendServerPacket(player, spawn);
 
             try {
@@ -73,35 +75,76 @@ public class ProtocolHerobrine {
         }
     }
 
+    // Cached NMS handles (looked up once, not every teleport)
+    private static boolean nmsInitDone = false;
+    private static boolean nmsAvailable = false;
+    private static boolean nmsErrorLogged = false;
+    private static java.lang.reflect.Constructor<?> vec3Ctor;
+    private static java.lang.reflect.Constructor<?> pmrCtor;
+    private static java.lang.reflect.Method pmrCreate; // pre-26.x fallback
+    private static java.lang.reflect.Constructor<?> tpPacketCtor;
+
+    private static synchronized void initNms() {
+        if (nmsInitDone) return;
+        nmsInitDone = true;
+        try {
+            Class<?> vec3Class = Class.forName("net.minecraft.world.phys.Vec3");
+            vec3Ctor = vec3Class.getConstructor(double.class, double.class, double.class);
+
+            Class<?> pmrClass = Class.forName("net.minecraft.world.entity.PositionMoveRotation");
+            try {
+                // 26.x: record canonical constructor (Vec3 position, Vec3 delta, float yRot, float xRot)
+                pmrCtor = pmrClass.getConstructor(vec3Class, vec3Class, float.class, float.class);
+            } catch (NoSuchMethodException e) {
+                // Older versions: static factory create(Vec3, Vec3, float, float)
+                pmrCreate = pmrClass.getMethod("create", vec3Class, vec3Class, float.class, float.class);
+            }
+
+            Class<?> tpPacketClass = Class.forName("net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket");
+            tpPacketCtor = tpPacketClass.getConstructor(int.class, pmrClass, java.util.Set.class, boolean.class);
+            nmsAvailable = true;
+        } catch (Throwable t) {
+            nmsAvailable = false;
+            if (!nmsErrorLogged) {
+                nmsErrorLogged = true;
+                Bukkit.getLogger().warning("[HerobrineAI] NMS teleport unavailable: " + t);
+            }
+        }
+    }
+
     public void teleport(Location loc) {
         this.currentLocation = loc.clone();
         if (!spawned) return;
 
+        initNms();
+        if (nmsAvailable) {
+            try {
+                Object position = vec3Ctor.newInstance(loc.getX(), loc.getY(), loc.getZ());
+                Object delta = vec3Ctor.newInstance(0.0, 0.0, 0.0);
+                Object pmr = (pmrCtor != null)
+                        ? pmrCtor.newInstance(position, delta, loc.getYaw(), loc.getPitch())
+                        : pmrCreate.invoke(null, position, delta, loc.getYaw(), loc.getPitch());
+
+                Object nmsPacket = tpPacketCtor.newInstance(entityId, pmr, java.util.Collections.emptySet(), false);
+                broadcast(new PacketContainer(PacketType.Play.Server.ENTITY_TELEPORT, nmsPacket));
+            } catch (Throwable t) {
+                if (!nmsErrorLogged) {
+                    nmsErrorLogged = true;
+                    Bukkit.getLogger().warning("[HerobrineAI] teleport packet failed (further errors suppressed): " + t);
+                }
+            }
+        }
+
         try {
-            Class<?> vec3Class = Class.forName("net.minecraft.world.phys.Vec3");
-            Object position = vec3Class.getConstructor(double.class, double.class, double.class)
-                    .newInstance(loc.getX(), loc.getY(), loc.getZ());
-            Object delta = vec3Class.getConstructor(double.class, double.class, double.class)
-                    .newInstance(0.0, 0.0, 0.0);
-
-            Class<?> pmrClass = Class.forName("net.minecraft.world.entity.PositionMoveRotation");
-            Object pmr = pmrClass.getMethod("create", vec3Class, vec3Class, float.class, float.class)
-                    .invoke(null, position, delta, loc.getYaw(), loc.getPitch());
-
-            Class<?> tpPacketClass = Class.forName("net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket");
-            Object nmsPacket = tpPacketClass.getConstructor(int.class, pmrClass, java.util.Set.class, boolean.class)
-                    .newInstance(entityId, pmr, java.util.Collections.emptySet(), false);
-
-            PacketContainer tp = new PacketContainer(PacketType.Play.Server.ENTITY_TELEPORT, nmsPacket);
-            broadcast(tp);
-
             PacketContainer head = manager.createPacket(PacketType.Play.Server.ENTITY_HEAD_ROTATION);
             head.getIntegers().write(0, entityId);
             head.getBytes().write(0, (byte) (loc.getYaw() * 256 / 360));
             broadcast(head);
         } catch (Exception e) {
-            Bukkit.getLogger().warning("[HerobrineAI] teleport failed: " + e.getMessage());
-            e.printStackTrace();
+            if (!nmsErrorLogged) {
+                nmsErrorLogged = true;
+                Bukkit.getLogger().warning("[HerobrineAI] head rotation failed (further errors suppressed): " + e.getMessage());
+            }
         }
     }
 
@@ -124,7 +167,12 @@ public class ProtocolHerobrine {
             head.getBytes().write(0, (byte) (yaw * 256 / 360));
             broadcast(look);
             broadcast(head);
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            if (!nmsErrorLogged) {
+                nmsErrorLogged = true;
+                Bukkit.getLogger().warning("[HerobrineAI] packet error (further errors suppressed): " + e.getMessage());
+            }
+        }
     }
 
     public void playAnimation(int animationId) {
@@ -133,7 +181,12 @@ public class ProtocolHerobrine {
             anim.getIntegers().write(0, entityId);
             anim.getIntegers().write(1, animationId);
             broadcast(anim);
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            if (!nmsErrorLogged) {
+                nmsErrorLogged = true;
+                Bukkit.getLogger().warning("[HerobrineAI] packet error (further errors suppressed): " + e.getMessage());
+            }
+        }
     }
 
     public void setEquipment(int slot, org.bukkit.inventory.ItemStack item) {
@@ -145,7 +198,12 @@ public class ProtocolHerobrine {
                     new Pair<>(EnumWrappers.ItemSlot.values()[slot], item));
             equip.getSlotStackPairLists().write(0, pairs);
             broadcast(equip);
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            if (!nmsErrorLogged) {
+                nmsErrorLogged = true;
+                Bukkit.getLogger().warning("[HerobrineAI] packet error (further errors suppressed): " + e.getMessage());
+            }
+        }
     }
 
     public void destroy() {
@@ -158,13 +216,23 @@ public class ProtocolHerobrine {
             infoRemove.getUUIDLists().write(0, Collections.singletonList(profile.getUUID()));
             broadcast(infoRemove);
             spawned = false;
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            if (!nmsErrorLogged) {
+                nmsErrorLogged = true;
+                Bukkit.getLogger().warning("[HerobrineAI] packet error (further errors suppressed): " + e.getMessage());
+            }
+        }
     }
 
     private void broadcast(PacketContainer packet) {
         for (Player p : Bukkit.getOnlinePlayers()) {
             try { manager.sendServerPacket(p, packet); }
-            catch (Exception e) { e.printStackTrace(); }
+            catch (Exception e) {
+                if (!nmsErrorLogged) {
+                    nmsErrorLogged = true;
+                    Bukkit.getLogger().warning("[HerobrineAI] packet send failed (further errors suppressed): " + e.getMessage());
+                }
+            }
         }
     }
 

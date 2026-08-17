@@ -1,7 +1,7 @@
 name: HerobrineAI
 main: org.jakub1221.herobrineai.HerobrineAI
 version: 4.0.0
-api-version: '1.21'
+api-version: '26.2'
 depend: [ProtocolLib]
 commands:
   hb-ai:
